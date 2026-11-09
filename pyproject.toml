@@ -1,0 +1,27 @@
+[project]
+name = "mlops-analise-sentimento"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Leonardo", email = "leonardocardia@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.162.0",
+    "joblib>=1.6.0",
+    "loguru>=0.7.3",
+    "pandas>=2.3.3",
+    "scikit-learn>=1.7.2",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+mlops-analise-sentimento = "mlops_analise_sentimento:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+package = false
