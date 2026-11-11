@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Análise de Sentimentos | MLOps</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f6fc;
+      color: #17233b;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+    }
+
+    .header { text-align: center; margin-bottom: 28px; }
+    .header h1 { font-size: 32px; margin: 12px 0; }
+    .header p { color: #64748b; line-height: 1.6; }
+
+    .tag {
+      color: #2563eb;
+      background: #dbeafe;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .card {
+      background: white;
+      border-radius: 18px;
+      padding: 32px;
+      box-shadow: 0 12px 40px #17233b12;
+    }
+
+    label { display: block; font-weight: bold; margin-bottom: 12px; }
+
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      padding: 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      resize: vertical;
+      font: inherit;
+      line-height: 1.5;
+      outline-color: #2563eb;
+    }
+
+    .counter {
+      text-align: right;
+      color: #64748b;
+      font-size: 12px;
+      margin: 8px 0 18px;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover { background: #1d4ed8; }
+    button:disabled { opacity: .65; cursor: wait; }
+
+    .result {
+      margin-top: 24px;
+      padding: 22px;
+      border-radius: 12px;
+      background: #f8fafc;
+    }
+
+    .result[hidden], .error[hidden] { display: none; }
+    .result.positive { background: #ecfdf5; }
+    .result.negative { background: #fef2f2; }
+
+    .sentiment { font-size: 24px; font-weight: bold; }
+    .positive .sentiment { color: #047857; }
+    .negative .sentiment { color: #b91c1c; }
+
+    .meter {
+      height: 10px;
+      border-radius: 10px;
+      background: #dbe2ed;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+
+    .bar {
+      height: 100%;
+      width: 0%;
+      background: #2563eb;
+      transition: width .4s;
+    }
+
+    .error { color: #b91c1c; margin-top: 16px; }
+    small { color: #64748b; }
+
+    footer {
+      text-align: center;
+      margin-top: 24px;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .card { padding: 20px; }
+      .header h1 { font-size: 26px; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <header class="header">
+      <span class="tag">MACHINE LEARNING · MLOPS</span>
+      <h1>Análise de Sentimentos</h1>
+      <p>
+        Descubra se um comentário expressa um sentimento
+        positivo ou negativo utilizando Machine Learning.
+      </p>
+    </header>
+
+    <div class="card">
+      <form id="form">
+        <label for="texto">Digite seu comentário</label>
+
+        <textarea
+          id="texto"
+          placeholder="Ex.: O atendimento foi excelente!"
+          minlength="3"
+          maxlength="1000"
+          required
+        ></textarea>
+
+        <div class="counter" id="contador">0 / 1000 caracteres</div>
+
+        <button type="submit" id="botao">
+          Analisar sentimento
+        </button>
+      </form>
+
+      <div class="error" id="erro" role="alert" hidden></div>
+
+      <section class="result" id="resultado" aria-live="polite" hidden>
+        <small>Sentimento identificado</small>
+        <p class="sentiment" id="sentimento"></p>
+
+        <strong>Confiança estimada: <span id="confianca"></span></strong>
+
+        <div class="meter">
+          <div class="bar" id="barra"></div>
+        </div>
+
+        <small id="versao"></small>
+        <p><small>A confiança é uma estimativa do modelo,
+          não uma garantia de acerto.</small></p>
+      </section>
+    </div>
+
+    <footer>
+      TF-IDF + Regressão Logística · FastAPI · AWS EC2
+    </footer>
+  </main>
+
+  <script>
+    const form = document.getElementById("form");
+    const texto = document.getElementById("texto");
+    const botao = document.getElementById("botao");
+    const resultado = document.getElementById("resultado");
+    const erro = document.getElementById("erro");
+
+    texto.addEventListener("input", () => {
+      document.getElementById("contador").textContent =
+        `${texto.value.length} / 1000 caracteres`;
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const comentario = texto.value.trim();
+      if (comentario.length < 3) {
+        erro.textContent = "Digite pelo menos 3 caracteres.";
+        erro.hidden = false;
+        return;
+      }
+
+      botao.disabled = true;
+      botao.textContent = "Analisando...";
+      resultado.hidden = true;
+      erro.hidden = true;
+
+      try {
+        const response = await fetch("/api/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ texto: comentario })
+        });
+
+        if (!response.ok) {
+          throw new Error("Falha na requisição");
+        }
+
+        const dados = await response.json();
+
+        if (
+          !["positivo", "negativo"].includes(dados.sentimento) ||
+          !Number.isFinite(Number(dados.confianca))
+        ) {
+          throw new Error("Resposta inválida");
+        }
+
+        const positivo = dados.sentimento === "positivo";
+        const percentual = Math.round(
+          Math.max(0, Math.min(1, Number(dados.confianca))) * 100
+        );
+
+        resultado.className =
+          "result " + (positivo ? "positive" : "negative");
+
+        document.getElementById("sentimento").textContent =
+          positivo ? "Positivo 😊" : "Negativo 🙁";
+
+        document.getElementById("confianca").textContent =
+          percentual + "%";
+
+        document.getElementById("barra").style.width =
+          percentual + "%";
+
+        document.getElementById("versao").textContent =
+          "Versão do modelo: " + (dados.versao_modelo || "N/D");
+
+        resultado.hidden = false;
+
+      } catch (error) {
+        erro.textContent =
+          "Não foi possível analisar o comentário. Tente novamente.";
+        erro.hidden = false;
+      } finally {
+        botao.disabled = false;
+        botao.textContent = "Analisar sentimento";
+      }
+    });
+  </script>
+</body>
+</html>

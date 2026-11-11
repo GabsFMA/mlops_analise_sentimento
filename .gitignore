@@ -1,0 +1,12 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Arquivos temporarios
+*.bak
+
+# Segredos e variaveis de ambiente
+.env
+.env.*
